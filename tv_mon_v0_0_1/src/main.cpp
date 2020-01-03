@@ -21,7 +21,10 @@ void track_station_time();
 void set_relays();
 void set_notification();
 void wifi_reconnect(int timeout);
+
+/****************************************************************************************/
 /***********************  ARDUINO FUNCTIONS   *****************************************/
+/****************************************************************************************/
 void setup()
 {
   // Initilalize
@@ -44,7 +47,10 @@ void loop()
   set_notification();
 }
 
+/****************************************************************************************/
 /********************* FUNCTION DEFINITIONS *********************************************/
+/****************************************************************************************/
+
 void set_relays()
 {
   digitalWrite(REL1_PIN, drvr.io_manager.st1_state);
@@ -90,10 +96,10 @@ void track_station_time()
     {
       st1_tm -= elapsed_time / 1000;
       // Avoid rollover
-      st1_tm = (st1_tm > 30600)? 0:st1_tm; // Avoid rollover. 30600  = 510 mins * 60 secs
+      st1_tm = (st1_tm > 30600) ? 0 : st1_tm; // Avoid rollover. 30600  = 510 mins * 60 secs
       st1_state = REL_ON_STATE;
     }
-    else  //st1_tm == 0
+    else //st1_tm == 0
     {
 
       st1_state = !REL_ON_STATE;
@@ -101,7 +107,7 @@ void track_station_time()
     if (st2_tm > 0)
     {
       st2_tm -= elapsed_time / 1000;
-      st2_tm = (st2_tm > 30600)? 0:st2_tm; // Avoid rollover. 30600  = 510 mins * 60 secs
+      st2_tm = (st2_tm > 30600) ? 0 : st2_tm; // Avoid rollover. 30600  = 510 mins * 60 secs
       st2_state = REL_ON_STATE;
     }
     else
@@ -121,11 +127,12 @@ void track_station_time()
   }
 }
 
-void wifi_reconnect(int timeout=0)
+void wifi_reconnect(int timeout = 0)
 {
   // Wait for connection
-  if(WiFi.status() == WL_CONNECTED) return;
-   WiFi.reconnect();
+  if (WiFi.status() == WL_CONNECTED)
+    return;
+  WiFi.reconnect();
   if (!timeout)
     while (WiFi.status() != WL_CONNECTED)
     {

@@ -32,18 +32,19 @@ typedef struct TVMon
     ESP8266WebServer *server;
     ESP8266WebServer *tcp_server;
     ESP8266HTTPUpdateServer *httpUpdater;
-    const char* html_access_page;
-    const char* admin_page;
+    const char *html_access_page;
+    const char *admin_page;
   } WiFi_server;
-  
-  struct io_manager{
+
+  struct io_manager
+  {
     uint64_t st1_tm;
     uint64_t st2_tm;
-    
+
     bool st1_state;
     bool st2_state;
     bool beep;
-  }io_manager;
+  } io_manager;
   uint32_t curr_time;
 } TVMon_drvr;
 
