@@ -4,15 +4,17 @@ void init_outputs();
 void init_TVMon_drvr();
 void init_http_webserver();
 void init_WiFi();
+void init_websockets_server();
 // server callback functions
 void handle_root();
-void handle_get_date_time();
-void handle_get_all_data();
-void handle_get_st1_tm();
-void handle_get_st2_tm();
-void handle_reset_st1();
-void handle_reset_st2();
-void handle_set_game_data();
+TVMON_ERR handle_get_date_time(uint8_t *buff, int &len);
+TVMON_ERR handle_get_all_data(int num, int addr, uint8_t *payload, uint8_t &len);
+TVMON_ERR handle_get_st1_tm(uint8_t *buff, int &len);
+TVMON_ERR handle_get_st2_tm(uint8_t *buff, int &len);
+TVMON_ERR handle_reset_stX(uint8_t num, uint8_t *payload, size_t len);
+void handle_ws_payload(uint8_t num, uint8_t *payload, size_t len);
+//void handle_reset_st2();
+TVMON_ERR handle_set_game_data(int num, uint8_t *data, int len);
 void handle_not_found();
 void handle_admin_settings();
 void handle_clear_eeprom();
@@ -21,6 +23,7 @@ void track_station_time();
 void set_relays();
 void set_notification();
 void wifi_reconnect(int timeout);
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length);
 /***********************  ARDUINO FUNCTIONS   *****************************************/
 void setup()
 {
@@ -32,11 +35,13 @@ void setup()
   drvr.rtc_module->init(); //rtc
   tvmon_eeprom_init();     //eeprom
   init_http_webserver();   //http_webserver
+  init_websockets_server();
 }
 
 void loop()
 {
   drvr.WiFi_server.server->handleClient();
+  drvr.WiFi_server.ws->loop();
   MDNS.update();
   wifi_reconnect(3);
   track_station_time();
@@ -90,10 +95,10 @@ void track_station_time()
     {
       st1_tm -= elapsed_time / 1000;
       // Avoid rollover
-      st1_tm = (st1_tm > 30600)? 0:st1_tm; // Avoid rollover. 30600  = 510 mins * 60 secs
+      st1_tm = (st1_tm > 30600) ? 0 : st1_tm; // Avoid rollover. 30600  = 510 mins * 60 secs
       st1_state = REL_ON_STATE;
     }
-    else  //st1_tm == 0
+    else //st1_tm == 0
     {
 
       st1_state = !REL_ON_STATE;
@@ -101,7 +106,7 @@ void track_station_time()
     if (st2_tm > 0)
     {
       st2_tm -= elapsed_time / 1000;
-      st2_tm = (st2_tm > 30600)? 0:st2_tm; // Avoid rollover. 30600  = 510 mins * 60 secs
+      st2_tm = (st2_tm > 30600) ? 0 : st2_tm; // Avoid rollover. 30600  = 510 mins * 60 secs
       st2_state = REL_ON_STATE;
     }
     else
@@ -121,11 +126,12 @@ void track_station_time()
   }
 }
 
-void wifi_reconnect(int timeout=0)
+void wifi_reconnect(int timeout = 0)
 {
   // Wait for connection
-  if(WiFi.status() == WL_CONNECTED) return;
-   WiFi.reconnect();
+  if (WiFi.status() == WL_CONNECTED)
+    return;
+  WiFi.reconnect();
   if (!timeout)
     while (WiFi.status() != WL_CONNECTED)
     {
@@ -192,14 +198,11 @@ void init_TVMon_drvr()
   drvr.eeprom = new tvmon_eep_t;
   drvr.WiFi_server.httpUpdater = new ESP8266HTTPUpdateServer(true);
   drvr.WiFi_server.server = new ESP8266WebServer(80);
+  drvr.WiFi_server.ws = new WebSocketsServer(81);
+
   //drvr.WiFi_server.tcp_server       = new ESP8266WebServer(TCP_SERVER_PORT); TODO: Write TCP server
   drvr.WiFi_server.html_access_page = html_access_page;
   drvr.WiFi_server.admin_page = html_admin_page;
-
-  // Initilize TX buffer
-  memset(drvr.rx_tx_data.tx_data, 0, TX_BUFF_LEN);
-  drvr.eeprom->tx_data_buff = drvr.rx_tx_data.tx_data;
-  drvr.eeprom->tx_buff_len = TX_BUFF_LEN;
 
   // Init io
   drvr.io_manager.st1_state = !REL_ON_STATE;
@@ -216,19 +219,18 @@ void init_http_webserver()
   ESP8266WebServer &server = *drvr.WiFi_server.server;
   drvr.WiFi_server.httpUpdater->setup(&server, OTAPATH, OTAUSER, OTAPASSWORD);
   server.on("/", handle_root);
-  server.on("/date_time", handle_get_date_time);
-  server.on("/get_all_data", handle_get_all_data);
-  server.on("/st1_tm", handle_get_st1_tm);
-  server.on("/st2_tm", handle_get_st2_tm);
-  server.on("/reset_st1", handle_reset_st1);
-  server.on("/reset_st2", handle_reset_st2);
-  server.on("/gameData", handle_set_game_data);
   server.on("/set_date_time", handle_set_new_date);
   server.on("/clear_eeprom", handle_clear_eeprom);
   server.on("/admin", handle_admin_settings);
   server.onNotFound(handle_not_found);
   server.begin();
   TVMON_DEBUG("HTTP server started");
+}
+
+void init_websockets_server()
+{
+  drvr.WiFi_server.ws->begin();
+  drvr.WiFi_server.ws->onEvent(webSocketEvent);
 }
 
 /*******************************    SERVER CALLBACK FUNCTIONS   **********************************/
@@ -238,31 +240,43 @@ void handle_root()
   drvr.WiFi_server.server->send_P(200, "text/html", drvr.WiFi_server.html_access_page);
   TVMON_DEBUG("Handle root sent!");
 }
-void handle_get_date_time()
+TVMON_ERR handle_get_date_time(uint8_t *buff, int &len)
 {
   // Get date and time from RTC module
   String curr_date;
   drvr.rtc_module->get_time(curr_date);
-  drvr.WiFi_server.server->sendContent(curr_date);
+  curr_date.toCharArray((char *)buff, TX_BUFF_LEN - 1);
+  len = curr_date.length();
+  return ERR_NOERR;
 }
-void handle_get_all_data()
+
+TVMON_ERR handle_get_all_data(int num, int addr, uint8_t *payload, uint8_t &len)
 {
   //TODO:  rite hhandle_get_all_data_fxn
 }
-void handle_get_st1_tm()
+TVMON_ERR handle_get_st1_tm(uint8_t *buff, int &len)
 {
   int tm = drvr.io_manager.st1_tm / 60;
-  int sec = drvr.io_manager.st1_tm % 60;
-  drvr.WiFi_server.server->sendContent(String(tm) + String(":") + String(sec));
-
-  TVMON_DEBUG("St1_tm=" + String(tm));
+  int sec = (drvr.io_manager.st1_tm) % 60;
+  String data = (tm < 10) ? ("0" + String(tm)) : String(tm);
+  data += String(":");
+  data += (sec < 10) ? ("0" + String(sec)) : String(sec);
+  data.toCharArray((char *)buff, TX_BUFF_LEN);
+  len = data.length();
+  TVMON_DEBUG("St1_tm=" + data);
+  return ERR_NOERR;
 }
-void handle_get_st2_tm()
+TVMON_ERR handle_get_st2_tm(uint8_t *buff, int &len)
 {
   int tm = drvr.io_manager.st2_tm / 60;
-  int sec = drvr.io_manager.st2_tm % 60;
-  drvr.WiFi_server.server->sendContent(String(tm) + String(":") + String(sec));
-  TVMON_DEBUG("St2_tm=" + String(tm));
+  int sec = (drvr.io_manager.st2_tm) % 60;
+  String data = (tm < 10) ? ("0" + String(tm)) : String(tm);
+  data += String(":");
+  data += (sec < 10) ? ("0" + String(sec)) : String(sec);
+  data.toCharArray((char *)buff, TX_BUFF_LEN);
+  len = data.length();
+  TVMON_DEBUG("St2_tm=" + data);
+  return ERR_NOERR;
 }
 
 void create_usage_data(usage_data_t &udata, int g_time, int staxn, int g_id)
@@ -270,7 +284,7 @@ void create_usage_data(usage_data_t &udata, int g_time, int staxn, int g_id)
   date_time_t curr_date;
   udata.cons_id = staxn;
   udata.game_id = g_id;
-  udata.game_time = g_time;
+  udata.game_time = g_time / 2;
   udata.pers_id = 0;
   drvr.rtc_module->get_time(&curr_date);
   udata.min = curr_date.min;
@@ -278,18 +292,23 @@ void create_usage_data(usage_data_t &udata, int g_time, int staxn, int g_id)
   udata.day = curr_date.day_of_mnth;
   udata.mnth = curr_date.mnth;
 }
-void handle_set_game_data()
+TVMON_ERR handle_set_game_data(int num, uint8_t *payload, int len)
 {
-  // 1. Get data from server
-  String data = drvr.WiFi_server.server->arg(0);
-  int chckd_staxn = data.charAt(0) - '0';
-  int chckd_game = data.charAt(1) - '0';
-  int game_time = data.substring(2).toInt();
-
-  if (chckd_game > 3 || chckd_staxn > 1 || game_time > 510)
+  String msg;
+  int chckd_staxn = payload[0];
+  int chckd_game = payload[1];
+  int game_time = payload[2]; //Actual time divided by two
+  TVMON_DEBUG_nln("Checked station: " + String(chckd_staxn));
+  TVMON_DEBUG_nln("\tChecked game: " + String(chckd_game));
+  TVMON_DEBUG_nln("\tGame Time:" + String(game_time));
+  if (chckd_game > 3 || chckd_staxn > (NUM_OF_STAXNS - 1) || game_time > 510)
   {
-    drvr.WiFi_server.server->sendContent("Erroneous data received! Please check inputs!");
-    return;
+    msg = "Erroneous data rceived by server. Please check inputs an try again.";
+    drvr.WiFi_server.ws_tx_buff[0] = SERV_CMD ::ALERT;
+    msg.toCharArray(reinterpret_cast<char *>(drvr.WiFi_server.ws_tx_buff + 1), TX_BUFF_LEN);
+    drvr.WiFi_server.ws->sendBIN(num, drvr.WiFi_server.ws_tx_buff, 1 + msg.length());
+
+    return ERR_GAME_DATA;
   }
   // 2. Copy data to usage data struct
   usage_data_t usage_data;
@@ -297,15 +316,15 @@ void handle_set_game_data()
   // 3. If st1 is on, append time (ie add set time to time)
   if (chckd_staxn == 0)
   {
-    drvr.io_manager.st1_tm += game_time * 60;
+    drvr.io_manager.st1_tm += game_time * 2 * 60;
   }
   else
   {
-    drvr.io_manager.st2_tm += game_time * 60;
+    drvr.io_manager.st2_tm += game_time * 2 * 60;
   }
 
   // Save the data
-  String msg;
+
   TVMON_ERR err = tvmon_eeprom_wrt_tv_ud(&usage_data);
   if (err != ERR_NOERR)
   {
@@ -313,25 +332,37 @@ void handle_set_game_data()
   }
   else
   {
-    msg = "GAME ON!. \n.Station " + String(chckd_staxn) + " turned on with time = " + String(game_time);
+    msg = "GAME ON!. \nStation " + String(chckd_staxn) + " turned on with time = " + String(game_time * 2);
   }
-  drvr.WiFi_server.server->sendContent(msg);
+  //drvr.WiFi_server.server->sendContent(msg);
+  drvr.WiFi_server.ws_tx_buff[0] = SERV_CMD ::ALERT;
+  msg.toCharArray(reinterpret_cast<char *>(drvr.WiFi_server.ws_tx_buff + 1), TX_BUFF_LEN);
+  drvr.WiFi_server.ws->sendBIN(num, drvr.WiFi_server.ws_tx_buff, 1 + msg.length());
   TVMON_DEBUG(msg);
+  return ERR_NOERR;
 }
 
-void handle_reset_st1()
+TVMON_ERR handle_reset_stX(uint8_t num, uint8_t *payload, size_t len)
 {
-  String msg = "Station 1 turned off";
-  drvr.io_manager.st1_tm = 0;
-  drvr.WiFi_server.server->sendContent(msg);
+  int x = payload[0];
+  String msg = "Station " + String(x + 1) + " turned off successfully!";
+  if (x < NUM_OF_STAXNS)
+  {
+    *(&drvr.io_manager.st1_tm + x) = 0;
+    // Form data accodng to protocol
+    drvr.WiFi_server.ws_tx_buff[0] = SERV_CMD ::ALERT;
+    msg.toCharArray(reinterpret_cast<char *>(drvr.WiFi_server.ws_tx_buff + 1), TX_BUFF_LEN);
+    drvr.WiFi_server.ws->sendBIN(num, drvr.WiFi_server.ws_tx_buff, 1 + msg.length());
+    TVMON_DEBUG("Handle station reset :" + msg);
+  }
+  else
+  {
+    TVMON_DEBUG("ERROR: Handle station reset!");
+    return TVMON_ERR::ERR_DATA;
+  }
+  return ERR_NOERR;
 }
 
-void handle_reset_st2()
-{
-  String msg = "Station 2 turned off";
-  drvr.io_manager.st2_tm = 0;
-  drvr.WiFi_server.server->sendContent(msg);
-}
 void handle_not_found()
 {
   ESP8266WebServer &server = *drvr.WiFi_server.server;
@@ -382,4 +413,90 @@ void handle_set_new_date()
   String resp = "New date set. New date is now :" + nw_date;
   drvr.WiFi_server.server->sendContent(resp);
   TVMON_DEBUG(resp);
+}
+
+// Websockets
+
+void handle_ws_payload(uint8_t num, uint8_t *payload, size_t len)
+{
+  TVMON_DEBUG_nln("handle_ws_payload:\t");
+  if (len == 0)
+  {
+    TVMON_DEBUG_nln("ERROR WS Payload = 0 ");
+    return;
+  }
+
+  WebSocketsServer *ws = drvr.WiFi_server.ws;
+  int tx_len = 0;
+  TVMON_DEBUG_nln("\tCOMMAND=" + String(payload[0]));
+  switch (payload[0])
+  {
+  case SERV_CMD::GET_ST1_TM:
+    TVMON_DEBUG("\tGET_ST1_TM");
+    drvr.WiFi_server.ws_tx_buff[0] = SERV_CMD::GET_ST1_TM;
+    handle_get_st1_tm(drvr.WiFi_server.ws_tx_buff + 1, tx_len);
+    tx_len++;
+    ws->sendBIN(num, drvr.WiFi_server.ws_tx_buff, tx_len);
+    break;
+  case SERV_CMD::GET_ST2_TM:
+    TVMON_DEBUG("GET_ST2_TM");
+    drvr.WiFi_server.ws_tx_buff[0] = SERV_CMD::GET_ST2_TM;
+
+    handle_get_st2_tm(drvr.WiFi_server.ws_tx_buff + 1, tx_len);
+    tx_len++;
+    ws->sendBIN(num, drvr.WiFi_server.ws_tx_buff, tx_len);
+    TVMON_DEBUG("Sent " + String(tx_len));
+    break;
+  case SERV_CMD::RESET_STX_T:
+    TVMON_DEBUG("RESET_STX_T");
+    handle_reset_stX(num, payload + 1, len);
+    break;
+  case SERV_CMD::SET_DATA:
+    TVMON_DEBUG("SET_DATA");
+    handle_set_game_data(num, payload + 1, len);
+    break;
+  case SERV_CMD::GET_CURR_TM:
+    drvr.WiFi_server.ws_tx_buff[0] = SERV_CMD::GET_CURR_TM;
+    handle_get_date_time(drvr.WiFi_server.ws_tx_buff + 1, tx_len);
+    ws->sendBIN(num, drvr.WiFi_server.ws_tx_buff, tx_len + 1);
+    break;
+  default:
+    TVMON_DEBUG("Unknown cmd");
+    break;
+  }
+}
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
+{
+  WebSocketsServer *ws = drvr.WiFi_server.ws;
+  switch (type)
+  {
+  case WStype_DISCONNECTED:
+    //TVMON_DEBUG_PF("[%u] Disconnected!\n", num);
+    break;
+  case WStype_CONNECTED:
+  {
+    IPAddress ip = ws->remoteIP(num);
+    //TVMON_DEBUG_PF("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
+
+    // send message to client
+    ws->sendTXT(num, "Connected");
+  }
+  break;
+  case WStype_TEXT:
+    //TVMON_DEBUG_PF("[%u] get Text: %s\n", num, payload);
+
+    // send message to client
+    // webSocket.sendTXT(num, "message here");
+
+    // send data to all connected clients
+    // webSocket.broadcastTXT("message here");
+    break;
+  case WStype_BIN:
+    //TVMON_DEBUG_PF("[%u] get binary length: %u\n", num, length);
+    hexdump(payload, length);
+    handle_ws_payload(num, payload, length);
+    // send message to client
+    // webSocket.sendBIN(num, payload, length);
+    break;
+  }
 }

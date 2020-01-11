@@ -15,6 +15,8 @@ typedef enum
     ERR_RTC_WRT,
     ERR_RTC_INIT,
 
+    ERR_GAME_DATA,
+    ERR_DATA,
     ERR_LAST_ADDR_OUT_OF_BBOUNDS
 } TVMON_ERR;
 

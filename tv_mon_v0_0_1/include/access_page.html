@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <title>Connect Gaming Access Portal</title>
   <style>
@@ -298,8 +299,8 @@
               </td>
             </tr>
             <tr>
-              <td><button id='RS1' onclick='resetStxn(1)'>RESET</button></th>
-              <td><button id='RS2'onclick='resetStxn(2)'>RESET</button></th>
+              <td><button id='RS1' onclick='resetStxn(0)'>RESET</button></th>
+              <td><button id='RS2' onclick='resetStxn(1)'>RESET</button></th>
             </tr>
           </table>
         </div>
@@ -381,107 +382,145 @@
     </div>
     <script>
       var ajaxRequest = null;
-      var _ctr=2;
-      if (window.XMLHttpRequest) {
-        ajaxRequest = new XMLHttpRequest();
-      }
-      else {
-        ajaxRequest = new ActiveXObject("Microsoft.XMLHTTP");
-      }
+      var WSocket;
+      var WS_busy = false;
+      var WS_connctd=false;
+      var _ctr = 0;
+      var ServCMD = {
+        GET_ST1_TM: 1,
+        GET_ST2_TM: 2,
+        GET_CURR_TM: 3,
+        RESET_STX_TM: 4,
+        SET_DATA:5,
+        //
+        ALERT: 9,
+      };
 
       window.addEventListener('load', on_load_done);
-      
-
       function on_load_done() {
-        getData("st1_tm", "st1_tm", false);
-        getData("st2_tm", "st2_tm", false);
-        getData("date_time", "date_time", false);
-        get_station_data();
+        WSocket = new WebSocket('ws://' + window.location.hostname+ ':81/');
+        WSocket.binaryType = "arraybuffer";
+        WSocket.onopen = function (e) {
+          WS_connctd=true;
+          WS_get_data();
+          WS_get_data();
+          WS_get_curr_time();
+          setInterval(WS_get_data, 250);
+          setInterval(WS_get_curr_time, 30000);
+        }
+        WSocket.onmessage = function (event) {
+          WS_msg_recvd(event);
+        }
+        WSocket.onclose = function(e){
+          WS_connctd=false;
+        }
+        //get_station_data();
       }
 
-      function get_station_data() {
+      function WS_msg_recvd(event) {
+        var arr = new Uint8Array(event.data);
+        var arr2= arr.slice(1);
+        var td= new TextDecoder();
+
+        var str = td.decode(arr2);
+        var cmd = arr[0];
+        var html_id='';
+        switch (arr[0]) {
+          case ServCMD.GET_ST1_TM:
+           html_id = 'st1_tm';
+            break;
+          case ServCMD.GET_ST2_TM:
+          html_id='st2_tm';
+            break;
+          case ServCMD.GET_CURR_TM:
+          html_id = 'date_time';
+            break;
+          case ServCMD.ALERT:
+            alert(str);
+            break;
+        }
+        if(html_id != '')document.getElementById(html_id).innerHTML=str;
+      }
+
+      function WS_get_data() {
+        var buff = new ArrayBuffer(1);
+        var data  = new Int8Array(buff);
+        var cmd;
         switch (_ctr) {
           case 0:
-            getData("st1_tm", "st1_tm", true);
+          cmd=ServCMD.GET_ST1_TM;
             //get_station_data.ctr=1;
             _ctr=1;
             break;
           case 1:
-            getData("st2_tm", "st2_tm", true);
+            cmd = ServCMD.GET_ST2_TM;
             _ctr=0;
             //get_station_data.ctr=0; // not working, dunn why
             break;
-            case 2:
-            _ctr=0;
-            break;
         }
+        data[0]=cmd;
+        WS_send(buff);
+      }
+      function WS_get_curr_time() {
+        var buff = new ArrayBuffer(1);
+        var data  = new Int8Array(buff);
+        data[0]=ServCMD.GET_CURR_TM;
+        WS_send(buff);
+      }
 
-        setTimeout(get_station_data, 10000);
+      function WS_send(data) {
+        if (!WS_busy && WS_connctd) {
+          WS_busy = true;
+          WSocket.send(data);
+          WS_busy = false;
+        }
       }
 
       function validateInput() {
         // Check station radio button input
         var temp = document.getElementsByName("station");
-        var chkdStation;
-        var res = false;
+        var chkdStation=-1;
         for (var i = 0; i < temp.length; i++) {
           if (temp[i].checked) {
-            chkdStation = i.toString();
+            chkdStation = i;
             res = true;
           }
         }
-        if (!res) alert("Please select a Station");
-
-        var checkdGame;
+        if (chkdStation==-1) {
+          alert("Please select a Station");
+          return;
+        }
+        res=false;
+        var checkdGame=-1;
         temp = document.getElementsByName("games");
         for (var i = 0; i < temp.length; i++) {
           if (temp[i].checked) {
-            checkdGame = i.toString();
+            checkdGame = i;
             res = true;
           }
         }
-        if (!res) alert("Please select a game");
-        ajaxRequest.open("POST", "gameData", false);
-        ajaxRequest.onreadystatechange = function () {
-          if (ajaxRequest.readyState == 4 && ajaxRequest.status == 200) {
-            alert(ajaxRequest.responseText);
-          }
+        if (checkdGame==-1) {
+          alert("Please select a game");
+          return;
         }
-        var p_time = document.getElementById("time").value.toString();
-        var data = chkdStation + checkdGame + p_time.toString();
-        ajaxRequest.send(data);
-        getData("st1_tm", "st1_tm", false);
-        getData("st2_tm", "st2_tm", false);
+
+        var p_time = document.getElementById("time").value;
+        let buff = new ArrayBuffer(4);
+        let data = new Int8Array(buff);
+        data[0]=ServCMD.SET_DATA;
+        data[1]=chkdStation;
+        data[2]=checkdGame;
+        data[3]= p_time/2;
+        WSocket.send(buff);
         return false;
       }
 
-      function resetStxn(staxn_id){
-        var req= "reset_st"+staxn_id.toString();
-       // alert(req);
-        if (!ajaxRequest) {
-          alert("AJAX is not supported.");
-          return;
-        }
-        ajaxRequest.open("GET", req, false);
-        ajaxRequest.onreadystatechange = function () {
-          if (ajaxRequest.readyState == 4 && ajaxRequest.status == 200) {
-            alert(ajaxRequest.responseText);
-          }
-        }
-        ajaxRequest.send();
-        getData("st1_tm", "st1_tm", false);
-        getData("st2_tm", "st2_tm", false);
-      }
-
-      function getData(data, html_id, async) {
-        if (!ajaxRequest) { alert("AJAX is not supported."); return; }
-        ajaxRequest.open("GET", data, async);
-        ajaxRequest.onreadystatechange = function () {
-          if (ajaxRequest.readyState == 4 && ajaxRequest.status == 200) {
-            document.getElementById(html_id).innerHTML = ajaxRequest.responseText;
-          }
-        }
-        ajaxRequest.send();
+      function resetStxn(staxn_id) {
+        var buff = new ArrayBuffer(2);
+        var data = new Int8Array(buff);
+        data[0] = ServCMD.RESET_STX_TM;
+        data[1]= staxn_id;
+        WS_send(buff);
       }
 
     </script>

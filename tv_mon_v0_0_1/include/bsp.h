@@ -1,6 +1,6 @@
 #ifndef BSP_H
 #define BSP_H
-
+#define NUM_OF_STAXNS 2
 #define I2C_SDA 4
 #define I2C_SCL 5
 #define I2C_RTC_ADDR	0x68
@@ -13,7 +13,7 @@
 #define REL_ON_STATE false
 #define BUZZER_ON_STATE true
 // WiFi parameters
-#define WiFi_SSID 		"CGmng "
+#define WiFi_SSID 		"CGmng"
 #define WiFi_PASSWD 	"CGmng_2019"
 
 #define OTAUSER         "admin"    // Set OTA user

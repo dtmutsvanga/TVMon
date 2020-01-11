@@ -12,18 +12,12 @@
 #include <ESP8266mDNS.h>
 #include "access_page.h"
 #include <ESP8266HTTPUpdateServer.h>
+#include <WebSocketsServer.h>
 
 #define TX_BUFF_LEN 50
 /************************ DEFs and Strcuts **********************************************/
 typedef struct TVMon
 {
-  struct
-  {
-    usage_data_t tx_data[TX_BUFF_LEN];
-    usage_data_t rx_data;
-    int len_tx;
-  } rx_tx_data;
-
   TVMon_RTC *rtc_module;
   tvmon_eep_t *eeprom;
 
@@ -32,8 +26,11 @@ typedef struct TVMon
     ESP8266WebServer *server;
     ESP8266WebServer *tcp_server;
     ESP8266HTTPUpdateServer *httpUpdater;
+    WebSocketsServer *ws;
     const char* html_access_page;
     const char* admin_page;
+
+    uint8_t ws_tx_buff[TX_BUFF_LEN];
   } WiFi_server;
   
   struct io_manager{
