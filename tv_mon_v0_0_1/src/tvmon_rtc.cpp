@@ -51,7 +51,7 @@ TVMON_ERR TVMon_RTC::get_time(date_time_t *date){
 //	this->print_data(date);
 	
 	if(date != nullptr)
-		date = m_curr_time;
+		*date = *m_curr_time;
 
 	return ERR_NOERR;
 }

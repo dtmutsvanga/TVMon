@@ -4,6 +4,7 @@
         GET_CURR_TM	= 3,
         RESET_STX_T	= 4,
         SET_DATA	= 5,
+        GET_ALL_DATA  = 6,
         //
         ALERT		= 9
       };

@@ -20,7 +20,7 @@ typedef struct TVMon
 {
   TVMon_RTC *rtc_module;
   tvmon_eep_t *eeprom;
-
+  uint8_t eeprm_mem_cpy[MAX_LEN_DATA+1];
   struct WiFi_server
   {
     ESP8266WebServer *server;

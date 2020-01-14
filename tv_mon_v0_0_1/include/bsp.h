@@ -1,6 +1,7 @@
 #ifndef BSP_H
 #define BSP_H
 #define NUM_OF_STAXNS 2
+#define NUM_OF_GAMES 6
 #define I2C_SDA 4
 #define I2C_SCL 5
 #define I2C_RTC_ADDR	0x68
@@ -26,6 +27,7 @@
 #define ON_BEEP_TIME 300
 #define OFF_BEEP_TIME 1700
 #define BEEP_START_TIME 120
+
 
 
 #endif //BSP_H

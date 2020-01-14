@@ -103,12 +103,12 @@ TVMON_ERR tvmon_eeprom_wrt_tv_ud(usage_data_t *data){
     uint nxt_curr_addr = byte_len + tvmon_eeprom.curr_wrt_addr;
 
     // Roll-over address if maximum is reached
-    if ((nxt_curr_addr + sizeof(usage_data_t)) > MAX_WRT_ADDR) {
+    if (nxt_curr_addr + byte_len > MAX_WRT_ADDR) {
         tvmon_eeprom.curr_wrt_addr = USER_DATA_START_ADDR;
 
     }
     // Save the tv usage data and the next wrt address
-    err = eeprom.eeprom_write(tvmon_eeprom.curr_wrt_addr, (uint8_t *)data, byte_len);
+    err = eeprom.eeprom_write((unsigned int)tvmon_eeprom.curr_wrt_addr, (uint8_t *)data, byte_len);
     err &= eeprom.eeprom_write(LAST_WRT_ADDR_ADDR_LSB, (uint8_t)(0x00ff & nxt_curr_addr));
     err &= eeprom.eeprom_write(LAST_WRT_ADDR_ADDR_MSB, (uint8_t)(nxt_curr_addr >> 8));
     if (!err)
@@ -130,17 +130,33 @@ TVMON_ERR tvmon_eeprom_wrt_tv_ud(usage_data_t *data){
  * @param buff_length Length of the buffer
  * @return TVMON_ERR 
  */
-TVMON_ERR tvmon_eeprom_get_tv_ud_dump(uint16_t addr, usage_data_t* buff_ptr, int buff_length){
-    int len_byte = buff_length*sizeof(usage_data_t);
-    if(len_byte + addr > MAX_WRT_ADDR){
+TVMON_ERR tvmon_eeprom_get_tv_ud_dump(uint16_t addr, uint8_t* buff_ptr, int buff_length){
+    if(buff_length + addr > MAX_WRT_ADDR){
          TVMON_DEBUG("tvmon_eeprom_get_tv_ud_dump() \t\t ERR_EEPROM_LEN_DATA");
 
     }
-    if(!eeprom.eeprom_read(addr, (uint8_t*)buff_ptr, len_byte)){
+    
+    int num_iter=(buff_length)/128;
+    if(num_iter> 0){
+    for(int j=0;j<num_iter;j++){
+    if(!eeprom.eeprom_read(addr, buff_ptr, 128)){
         TVMON_DEBUG("tvmon_eeprom_get_tv_ud_dump() \t\t ERR_EEPROM_LEN_DATA");  // Read returns false if read lenght is less than len_byte
         return ERR_EEPROM_LEN_DATA;
     }
-
+    buff_ptr+=128;
+    addr+=128;
+    }
+    if(!eeprom.eeprom_read(addr, buff_ptr, buff_length%128)){
+        TVMON_DEBUG("tvmon_eeprom_get_tv_ud_dump() \t\t ERR_EEPROM_LEN_DATA");  // Read returns false if read lenght is less than len_byte
+        return ERR_EEPROM_LEN_DATA;
+    }
+    }
+     else {
+        if(!eeprom.eeprom_read(addr, (uint8_t*)buff_ptr, buff_length)){
+        TVMON_DEBUG("tvmon_eeprom_get_tv_ud_dump() \t\t ERR_EEPROM_LEN_DATA");  // Read returns false if read lenght is less than len_byte
+        return ERR_EEPROM_LEN_DATA;
+    }
+    }
     TVMON_DEBUG("tvmon_eeprom_get_tv_ud_dump() \t\t ERR_NOERR");
     return ERR_NOERR;
 }
@@ -152,16 +168,16 @@ TVMON_ERR tvmon_eeprom_get_tv_ud_dump(uint16_t addr, usage_data_t* buff_ptr, int
  * @return TVMON_ERR 
  */
 TVMON_ERR tvmon_eeprom_clear_data(uint16_t start_addr, int len){
-    int max_addr = start_addr+len;
-    if(max_addr>MAX_LEN_DATA) {
+    int max_addr = start_addr+len-1;
+    uint8_t temp[128]={0xff};
+    if(max_addr>MAX_WRT_ADDR) {
         TVMON_DEBUG("tvmon_eeprom_clear_data() \t\t ERR_EEPROM_LEN_DATA \t\t max_addr>MAX_LEN_DATA");
         return ERR_EEPROM_LEN_DATA;
     }
-
     TVMON_DEBUG("Clearing EEPROM data...");
-    for(uint i=start_addr;i<(uint)len;i++)
+    for(uint i=start_addr;i<(uint)len;i+=128)
     {
-        if(!eeprom.eeprom_write(i, 0xff)){
+        if(!eeprom.eeprom_write(i, temp, 128)){
             TVMON_DEBUG("tvmon_eeprom_clear_data() \t\tERR_EEPROM_WRT");
             return ERR_EEPROM_WRT;
         }
@@ -169,6 +185,7 @@ TVMON_ERR tvmon_eeprom_clear_data(uint16_t start_addr, int len){
             TVMON_DEBUG("..."+ String(i));
         }
     }
+
     TVMON_DEBUG("tvmon_eeprom_clear_data() \t\t ERR_NOERR");
     return ERR_NOERR;
 }

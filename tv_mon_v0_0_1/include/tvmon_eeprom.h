@@ -20,7 +20,7 @@
 
 // TV usage data struct. 
 //\ Do not re-arrange! Bit-fields packed
-typedef struct tv_usage_data {
+/*typedef struct tv_usage_data {
     uint8_t game_time:8;        // game time
     uint8_t cons_id:2;          // console id
     uint8_t min:6;              // time:min
@@ -30,8 +30,18 @@ typedef struct tv_usage_data {
     uint8_t hr:5;               // time :hr
     uint8_t mnth:4;             // time: month of yr
     uint8_t soft_ver:4;         // Software version
+} usage_data_t;*/
+typedef struct tv_usage_data {
+    uint8_t day;              // time: day of month
+    uint8_t mnth;             // time: month of yr
+    uint8_t hr;               // time :hr
+    uint8_t min;              // time:min
+    uint8_t cons_id;          // console id
+    uint8_t game_id;          // game id
+    uint8_t game_time;        // game time
+    uint8_t pers_id;          // personell id
+    uint8_t soft_ver;         // Software version
 } usage_data_t;
-
 typedef struct tvmon_eep {
     uint16_t curr_wrt_addr;
     usage_data_t last_save_data;
@@ -46,6 +56,6 @@ TVMON_ERR tvmon_eeprom_init();
 TVMON_ERR tvmon_eeprom_wrt_byte(char data);
 TVMON_ERR tvmon_eeprom_rd_byte(uint16_t addr, uint8_t *data);
 TVMON_ERR tvmon_eeprom_wrt_tv_ud( usage_data_t *buff);
-TVMON_ERR tvmon_eeprom_get_tv_ud_dump(uint16_t addr, usage_data_t* buff_ptr, int buff_length);
+TVMON_ERR tvmon_eeprom_get_tv_ud_dump(uint16_t addr, uint8_t* buff_ptr, int buff_length);
 TVMON_ERR tvmon_eeprom_clear_data(uint16_t start_addr=0, int len=MAX_WRT_ADDR);
 #endif //TVMON_EEPROM_H

@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-
 <head>
 	<title>Connect Gaming Access Portal</title>
 	<style>
@@ -12,6 +11,38 @@
 			font-size: 25px;
 			padding-bottom: 5px;
 		}
+
+		#udtable {
+			font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
+			border-collapse: collapse;
+			width: 100%;
+			padding-top: 10px;
+		}
+
+		#udtable td,
+		#udtable th {
+			border: 1px solid #ddd;
+			padding: 8px;
+			text-align: center;
+			min-width: 200px;
+		}
+
+		#udtable tr:nth-child(even) {
+			background-color: #f2f2f2;
+		}
+
+		#udtable tr:hover {
+			background-color: #ddd;
+		}
+
+		#udtable th {
+			padding-top: 12px;
+			padding-bottom: 12px;
+			text-align: center;
+			background-color: #4CAF50;
+			color: white;
+		}
+
 	</style>
 </head>
 
@@ -26,8 +57,11 @@
 		<br>
 		<button onclick="clear_eeprom()" style="background-color: red;">CLEAR EEPROM</button>
 	</center>
-	</center>
+	<div id="udtable"></div>
 	<script>
+		var ajaxRequest;
+		var WSocket;
+		var WSConnected = false;
 		if (window.XMLHttpRequest) {
 			ajaxRequest = new XMLHttpRequest();
 		}
@@ -35,12 +69,110 @@
 			ajaxRequest = new ActiveXObject("Microsoft.XMLHTTP");
 		}
 
+		window.addEventListener('load', on_load_done);
+		function on_load_done() {
+			WS_msg_recvd(1);
+			WSocket = new WebSocket('ws://' + window.location.hostname + ':81/');
+
+			WSocket.binaryType = "arraybuffer";
+			WSocket.onopen = function (e) {
+				WSConnected = true;
+			}
+			WSocket.onclose = function (e) {
+				WSConnected = false;
+			}
+			WSocket.onmessage = function (event) {
+				WS_msg_recvd(event);
+			}
+
+			//get_station_data();
+		}
+
+		function WS_msg_recvd(event) {
+			var arr = new Uint8Array(event.data);
+			var arr_size = arr.byteLength;
+			var td = '<td>';
+			var tdc = '</td>';
+			var ctr=0;
+			if (arr[0] == 6) //Get usage data
+			{
+				document.getElementById("udtable").innerHTML = '';
+				document.getElementById("udtable").innerHTML +=
+					"<center><table ><tbody id='udata'><tr><th>Entry No.</th>" +
+					"<th>Date</th>" +
+					"<th>Station</th>" +
+					"<th>Game</th>" +
+					"<th>Time on</th></tr>";
+
+				for (var i = 1; i + 9 < arr_size; i += 9) {
+					document.getElementById("udata").innerHTML += '<tr>' +
+						td + ctr++ + tdc +
+						td +
+						get_date_time_String(arr[i], arr[i+1], arr[i+2], arr[i+3])+
+						tdc +
+						td + arr[i + 4].toString() + tdc +
+						"<td class='game'>" + getGameName(arr[i + 5]) + tdc +
+						td + (arr[i + 6] * 2).toString() + tdc + '</tr>';
+				}
+				document.getElementById("udata").innerHTML +=
+					"</tbody></table></center>";
+			}
+		}
+		function get_date_time_String (day, month, hr, min) {
+			var retval = (day < 10)? ("0"+day.toString()):day.toString();
+			retval += "/";
+			retval += (month < 10)? ("0"+month.toString()):month.toString();
+			retval += " ";
+			retval += (hr < 10)? ("0"+hr.toString()):hr.toString();
+			retval += ":";
+			retval += (min < 10)? ("0"+min.toString()):min.toString();
+			return retval;
+		}
+
+		function getGameName(game) {
+			var retval = "Unknown";
+			switch (game) {
+				case 0:
+					retval = "FIFA20";
+					break;
+				case 1:
+					retval = "MK_X / Fighting";
+					break;
+				case 2:
+					retval = "GTA V";
+					break;
+				case 3:
+					retval = "CoD / War";
+					break;
+				case 4:
+					retval = "Forza / Racing";
+					break;
+				case 5:
+					retval = "Other";
+					break;
+			}
+			return retval;
+		}
+		function WS_send(data) {
+			WSocket.send(data);
+		}
+
 		function get_usage_data() {
-			alert("Function ot yet supported.");
+			var data = new ArrayBuffer(1);
+			var arr = new Uint8Array(data);
+			arr[0]=6;
+			WS_send(data);
 		}
 
 		function clear_eeprom() {
+			var password = prompt("Enter password:","" );
+			if(password == "5yk@"){
 			ajax_post("", "clear_eeprom", false);
+			}
+			else {
+				navigator.vibrate([500]);
+				alert("Wrong password!");
+			}
 		}
 
 		function dtm_send() {
@@ -67,3 +199,6 @@
 </body>
 
 </html>
+
+)rawliteral";
+#endif

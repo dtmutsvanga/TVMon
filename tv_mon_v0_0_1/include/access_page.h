@@ -1,7 +1,7 @@
 #ifndef ACCESS_PAGE_H
 #define ACCESS_PAGE_H
 #include "pgmspace.h"
-const char *html_access_page PROGMEM = R"rawliteral(
+const char *html_access_page PROGMEM = R"rawliteral(<!DOCTYPE html>
 <!DOCTYPE html>
 <html>
 
@@ -353,7 +353,7 @@ const char *html_access_page PROGMEM = R"rawliteral(
                   <td>
                     <li>
                       <input type='radio' id='mk' name='games'>
-                      <label for='mk'>MK X / Injustice </label>
+                      <label for='mk'>MKX / Fighting</label>
                       <div class='check'>
                         <div class='inside'></div>
                       </div>
@@ -364,14 +364,33 @@ const char *html_access_page PROGMEM = R"rawliteral(
                   <td>
                     <li>
                       <input type='radio' id='gtav' name='games'>
-                      <label for='gtav'>GTAV / COD</label>
+                      <label for='gtav'>GTAV</label>
                       <div class='check'>
                         <div class='inside'></div>
                       </div>
                     </li </td> <td>
                     <li>
+                      <input type='radio' id='war' name='games'>
+                      <label for='war'>CoD / War</label>
+                      <div class='check'>
+                        <div class='inside'></div>
+                      </div>
+                    </li>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td>
+                    <li>
+                      <input type='radio' id='racing' name='games' required>
+                      <label for='racing'>FORZA / Racing</label>
+                      <div class='check'></div>
+                    </li>
+                  </td>
+                  <td>
+                    <li>
                       <input type='radio' id='other' name='games'>
-                      <label for='other'>Other</label>
+                      <label for='other'>Other / Films</label>
                       <div class='check'>
                         <div class='inside'></div>
                       </div>
@@ -396,6 +415,7 @@ const char *html_access_page PROGMEM = R"rawliteral(
         GET_CURR_TM: 3,
         RESET_STX_TM: 4,
         SET_DATA:5,
+        GET_USAGE_DATA:6,
         //
         ALERT: 9,
       };
@@ -409,7 +429,7 @@ const char *html_access_page PROGMEM = R"rawliteral(
           WS_get_data();
           WS_get_data();
           WS_get_curr_time();
-          setInterval(WS_get_data, 2500);
+          setInterval(WS_get_data, 1000);
           setInterval(WS_get_curr_time, 30000);
         }
         WSocket.onmessage = function (event) {
@@ -425,7 +445,6 @@ const char *html_access_page PROGMEM = R"rawliteral(
         var arr = new Uint8Array(event.data);
         var arr2= arr.slice(1);
         var td= new TextDecoder();
-
         var str = td.decode(arr2);
         var cmd = arr[0];
         var html_id='';
@@ -445,7 +464,6 @@ const char *html_access_page PROGMEM = R"rawliteral(
         }
         if(html_id != '')document.getElementById(html_id).innerHTML=str;
       }
-
       function WS_get_data() {
         var buff = new ArrayBuffer(1);
         var data  = new Int8Array(buff);
