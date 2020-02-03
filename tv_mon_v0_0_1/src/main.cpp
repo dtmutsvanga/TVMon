@@ -253,7 +253,9 @@ TVMON_ERR handle_get_date_time(uint8_t *buff, int &len)
 TVMON_ERR handle_get_all_data( uint8_t *buff, int len)
 {
   //Get data
+  digitalWrite(BUZZER_PIN, BUZZER_ON_STATE);
   tvmon_eeprom_get_tv_ud_dump(USER_DATA_START_ADDR, buff, len);
+  digitalWrite(BUZZER_PIN, !BUZZER_ON_STATE);
   return ERR_NOERR;
 }
 
@@ -345,13 +347,22 @@ TVMON_ERR handle_get_st1_tm(uint8_t *buff, int &len)
     return ERR_NOERR;
   }
 
-  TVMON_ERR handle_reset_stX(uint8_t num, uint8_t * payload, size_t len)
+  TVMON_ERR handle_reset_stX(uint8_t num, uint8_t *payload, size_t len)
   {
     int x = payload[0];
     String msg = "Station " + String(x + 1) + " turned off successfully!";
     if (x < NUM_OF_STAXNS)
     {
       *(&drvr.io_manager.st1_tm + x) = 0;
+      // Create usage data
+      usage_data_t udata;
+      create_usage_data(udata, 0, x, 15);  // 15 ==  Reset station
+
+      TVMON_ERR err = tvmon_eeprom_wrt_tv_ud(&udata);
+      if (err != ERR_NOERR)
+      {
+        msg = "Could not station reset! Contact system administor!";
+      }
       // Form data accodng to protocol
       drvr.WiFi_server.ws_tx_buff[0] = SERV_CMD ::ALERT;
       msg.toCharArray(reinterpret_cast<char *>(drvr.WiFi_server.ws_tx_buff + 1), TX_BUFF_LEN);

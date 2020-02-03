@@ -1,7 +1,7 @@
  #ifndef ADMIN_SETTINGS_H
  #define ADMIN_SETTINGS_H
  #include "pgmspace.h"
- const char* html_admin_page PROGMEM =R"rawliteral(
+const char* html_admin_page PROGMEM =R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
@@ -153,6 +153,9 @@
 					break;
 				case 5:
 					retval = "Other";
+					break;
+				case 15:
+					retval = "RESET"
 					break;
 			}
 			return retval;

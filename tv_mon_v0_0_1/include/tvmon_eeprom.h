@@ -14,7 +14,7 @@
 #define WRAP_ARND_FLG_ADDR  1   // Used to see if we've reached max addr and rewritten over lower addresses
 #define LAST_WRT_ADDR_ADDR_LSB  2   // Last write address length
 #define LAST_WRT_ADDR_ADDR_MSB  3
-#define EEPROM_INITD_FLAG   0xbc
+#define EEPROM_INITD_FLAG   0xcb
 #define WRAP_AROUND_FLAG    0xee
 
 
@@ -34,7 +34,7 @@
 typedef struct tv_usage_data {
     uint8_t day;              // time: day of month
     uint8_t mnth;             // time: month of yr
-    uint8_t hr;               // time :hr
+    uint8_t hr;               // time:hr
     uint8_t min;              // time:min
     uint8_t cons_id;          // console id
     uint8_t game_id;          // game id
