@@ -14,8 +14,8 @@
 #define REL_ON_STATE false
 #define BUZZER_ON_STATE true
 // WiFi parameters
-#define WiFi_SSID 		"CGmng"
-#define WiFi_PASSWD 	"CGmng_2019"
+#define WiFi_SSID 		"Private"
+#define WiFi_PASSWD 	"10T_2020"
 
 #define OTAUSER         "admin"    // Set OTA user
 #define OTAPASSWORD     "admin"    // Set OTA password
