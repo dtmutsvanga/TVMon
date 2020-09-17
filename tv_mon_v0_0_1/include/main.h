@@ -1,4 +1,10 @@
 #include <Arduino.h>
+#include <ESP8266WiFi.h>
+#include <WiFiClient.h>
+#include <ESP8266WebServer.h>
+#include <ESP8266mDNS.h>
+#include <ESP8266HTTPUpdateServer.h>
+#include <WebSocketsServer.h>
 #include "tvmon_eeprom.h"
 #include "tvmon_rtc.h"
 #include "tvmon_wifi.h"
@@ -6,13 +12,8 @@
 #include "proto.h"
 #include "access_page.h"
 #include "admin_settings.h"
-#include <ESP8266WiFi.h>
-#include <WiFiClient.h>
-#include <ESP8266WebServer.h>
-#include <ESP8266mDNS.h>
 #include "access_page.h"
-#include <ESP8266HTTPUpdateServer.h>
-#include <WebSocketsServer.h>
+
 
 #define TX_BUFF_LEN 50
 /************************ DEFs and Strcuts **********************************************/
