@@ -7,6 +7,8 @@ monitor TV usage in my gaming  shops.
 2. Usage data storage ( and retrieval -WIP).
 3. Time based usage control.
 4. Usage notification i.e when usage time is ending, he device notifies the user(s) by beeping two minutes before time ends.
+5. EEPROM (FLASH) usage log storage.
+6. Stores time in RTC module
 
 ## Hardware
 The device is based on the ESP8266 microcontroller. It includes two relays, an RTC module for time tracking, an external EEPROM module, a buzzer
