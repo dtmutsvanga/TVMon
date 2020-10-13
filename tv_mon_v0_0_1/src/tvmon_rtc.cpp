@@ -76,7 +76,12 @@ TVMON_ERR TVMon_RTC::get_unix_time(uint32_t &date)
 String TVMon_RTC::print_data(date_time_t *date)
 {
 	String dtm;
-	dtm = String(date->day_of_mnth) + "/" + String(date->mnth) +"/" + String(date->yr)+" "+ String(date->hr) + ":"+ String(date->min);
+	dtm = String(date->day_of_mnth) + "/" + \
+	(date->mnth < 10? "0"+ String(date->mnth) : String(date->mnth)) +"/" + \
+	(date->yr < 10? "0"+ String(date->yr) : String(date->yr))+" "+ \
+	(date->hr < 10? "0"+ String(date->hr) : String(date->hr)) + ":"+ \
+	(date->min < 10? "0"+ String(date->min) : String(date->min));
+
 	TVMON_DEBUG_nln("RTC DateTime: ");
 	TVMON_DEBUG(dtm);
 	return dtm;

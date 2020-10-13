@@ -1,6 +1,7 @@
 const char* html_admin_page PROGMEM =R"rawliteral(
 <!DOCTYPE html>
 <html>
+
 <head>
 	<title>Connect Gaming Access Portal</title>
 	<style>
@@ -44,6 +45,19 @@ const char* html_admin_page PROGMEM =R"rawliteral(
 			color: white;
 		}
 
+		#myProgress {
+			width: 90%;
+			background-color: #ddd;
+			text-align: left;
+			border-radius: 20px;
+		}
+
+		#myBar {
+			width: 0%;
+			height: 30px;
+			background-color: #4CAF50;
+			border-radius: 20px;
+		}
 	</style>
 </head>
 
@@ -53,10 +67,27 @@ const char* html_admin_page PROGMEM =R"rawliteral(
 		<button id="dtm_btn" onclick="dtm_send()">SET</button>
 		<br>
 		<br>
-		<button onclick="get_usage_data()">GET USAGE DATA</button>
 		<br>
 		<br>
-		<button onclick="clear_eeprom()" style="background-color: red;">CLEAR EEPROM</button>
+		<table style="border-collapse: separate;
+		border-spacing: 50px 0;">
+			<th></th>
+			<th></th>
+			<tr>
+				<td>
+					<button onclick="get_usage_data()"
+						style="background-color: green; min-height: 200; min-width: 200px;">GET DATA</button>
+				</td>
+				<td>
+					<button onclick="clear_eeprom()"
+						style="background-color: red; min-height: 200px; min-width: 200px;">CLEAR DATA</button>
+				</td>
+			</tr>
+		</table>
+		<br>
+		<div id="myProgress"  >
+			<div id="myBar"></div>
+		</div>
 	</center>
 	<div id="udtable"></div>
 	<script>
@@ -94,39 +125,65 @@ const char* html_admin_page PROGMEM =R"rawliteral(
 			var arr_size = arr.byteLength;
 			var td = '<td>';
 			var tdc = '</td>';
-			var ctr=0;
-			if (arr[0] == 6) //Get usage data
+			var ctr = 0;
+			if (arr[0] == 6) //Get usage data command
 			{
 				document.getElementById("udtable").innerHTML = '';
 				document.getElementById("udtable").innerHTML +=
-					"<center><table ><tbody id='udata'><tr><th>Entry No.</th>" +
+					"<center><table ><tbody id='udata'><tr>" +
+					"<th>Entry No.</th>" +
 					"<th>Date</th>" +
 					"<th>Station</th>" +
 					"<th>Game</th>" +
-					"<th>Time on</th></tr>";
-
-				for (var i = 1; i + 9 < arr_size; i += 9) {
+					"<th>Time on</th>" +
+					"<th>Paid $</th>" +
+					"<th>Total $</th>" +
+					"<th>Total Time</tr>";
+				// Iterate incrementing by 10 == size of usage data stored in eeprom
+				var curr_dt;
+				var curr_mnth;
+				var curr_sum = 0;
+				var curr_ttl_time = 0;
+				for (var i = 1; i + 10 < arr_size; i += 10) {
+					// Check if we're on next day
+					date_s = get_date_time_String(arr[i], arr[i + 1], arr[i + 2], arr[i + 3]);
+					if (curr_dt != arr[i]) {
+						curr_dt = arr[i] ;
+						curr_mnth=arr[i+1];
+						curr_sum = 0;
+						curr_ttl_time=0;
+					}
+					curr_sum += arr[i + 7];
+					curr_ttl_time += arr[i + 6] * 2;
+					// Fill table with data
 					document.getElementById("udata").innerHTML += '<tr>' +
 						td + ctr++ + tdc +
-						td +
-						get_date_time_String(arr[i], arr[i+1], arr[i+2], arr[i+3])+
-						tdc +
+						td + date_s + tdc +
 						td + arr[i + 4].toString() + tdc +
-						"<td class='game'>" + getGameName(arr[i + 5]) + tdc +
-						td + (arr[i + 6] * 2).toString() + tdc + '</tr>';
+						"<td class='game'>" + getGameName(arr[i + 5]) + tdc +		// Game
+						td + (arr[i + 6] * 2).toString() + tdc + 					// Time
+						td + arr[i + 7].toString() + tdc +							// Amount
+						td + curr_sum.toString() + tdc + // Total $
+						td + curr_ttl_time.toString() + tdc + // total time
+						'</tr>';
+			
 				}
 				document.getElementById("udata").innerHTML +=
 					"</tbody></table></center>";
 			}
+			else if(arr[0] == 7) // Update progress bar
+			{
+				updateProgBar(arr[1]);
+			}
 		}
-		function get_date_time_String (day, month, hr, min) {
-			var retval = (day < 10)? ("0"+day.toString()):day.toString();
+		function get_date_time_String(day, month, hr, min) {
+			var retval = (day < 10) ? ("0" + day.toString()) : day.toString();
 			retval += "/";
-			retval += (month < 10)? ("0"+month.toString()):month.toString();
+			retval += (month < 10) ? ("0" + month.toString()) : month.toString();
 			retval += " ";
-			retval += (hr < 10)? ("0"+hr.toString()):hr.toString();
+			retval += (hr < 10) ? ("0" + hr.toString()) : hr.toString();
 			retval += ":";
-			retval += (min < 10)? ("0"+min.toString()):min.toString();
+			retval += (min < 10) ? ("0" + min.toString()) : min.toString();
 			return retval;
 		}
 
@@ -164,14 +221,14 @@ const char* html_admin_page PROGMEM =R"rawliteral(
 		function get_usage_data() {
 			var data = new ArrayBuffer(1);
 			var arr = new Uint8Array(data);
-			arr[0]=6;
+			arr[0] = 6;
 			WS_send(data);
 		}
 
 		function clear_eeprom() {
-			var password = prompt("Enter password:","" );
-			if(password == "5yk@"){
-			ajax_post("", "clear_eeprom", false);
+			var password = prompt("Enter password:", "");
+			if (password == "5yk@") {
+				ajax_post("", "clear_eeprom", false);
 			}
 			else {
 				navigator.vibrate([500]);
@@ -198,6 +255,11 @@ const char* html_admin_page PROGMEM =R"rawliteral(
 				}
 			}
 			ajaxRequest.send(data);
+		}
+		function updateProgBar(width) {
+			var elem = document.getElementById("myBar");
+			elem.style.width = width + "%";
+			elem.innerText=width.toString() + "%";
 		}
 	</script>
 </body>

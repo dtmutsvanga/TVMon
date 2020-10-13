@@ -14,7 +14,7 @@
 #define WRAP_ARND_FLG_ADDR  1   // Used to see if we've reached max addr and rewritten over lower addresses
 #define LAST_WRT_ADDR_ADDR_LSB  2   // Last write address length
 #define LAST_WRT_ADDR_ADDR_MSB  3
-#define EEPROM_INITD_FLAG   0xcb
+#define EEPROM_INITD_FLAG   0xba
 #define WRAP_AROUND_FLAG    0xee
 
 
@@ -31,6 +31,7 @@
     uint8_t mnth:4;             // time: month of yr
     uint8_t soft_ver:4;         // Software version
 } usage_data_t;*/
+typedef  void (*EEP_FDBK_CB)(int8_t buff[2]);
 typedef struct tv_usage_data {
     uint8_t day;              // time: day of month
     uint8_t mnth;             // time: month of yr
@@ -39,6 +40,7 @@ typedef struct tv_usage_data {
     uint8_t cons_id;          // console id
     uint8_t game_id;          // game id
     uint8_t game_time;        // game time
+    uint8_t amnt_paid;        // amount paid
     uint8_t pers_id;          // personell id
     uint8_t soft_ver;         // Software version
 } usage_data_t;
@@ -49,6 +51,7 @@ typedef struct tvmon_eep {
     int tx_buff_len;
     bool wrap_arnd;
     bool initd;
+    EEP_FDBK_CB fdbk_cb;
 } tvmon_eep_t;
 
 extern tvmon_eep_t tvmon_eeprom; 

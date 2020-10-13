@@ -108,7 +108,7 @@
 
     .button6 {
       background-color: white;
-      color: rgb(72, 255, 0);
+      color: #2196F3;
       border: 4px rgb(72, 255, 0);
       padding: 10px;
       width: 98%;
@@ -278,9 +278,8 @@
     <div class='round'>
       <div class='container'>
 
-        <h1>CONNECT GAMING </h1>
-
-        <h2> Access Portal</h2>
+        <h1> RenGaming </h1>
+        <h2> Access Dashboard </h2>
         <div class='sdata'>
           <span style="color: white;font-size: 30px;" id="date_time">DD/MM/YY HH:MM</span>
           <table class='sdata'>
@@ -307,9 +306,23 @@
         <p></p>
         <form action='/data_submit' method='POST' onsubmit='return validateInput()'>
           <div style='font-size:200%;color:white;'>
-            <label for='time'>Time(min) :</label>
-            <input type='number' id='time' name='time' min='0' max='510' step='5' value='5'
-              style='font-size:100%;border-radius:10px;max-width:50%;text-align: center;' required>
+            <center>
+            <table style="align-self: center;">
+              <th></th>
+              <th></th>
+              <tr>
+                <td><label for='time'>Time(min) :</label></td>
+                <td><input type='number' id='time' name='time' min='0' max='510' step='5' value='5'
+                  style='font-size:100%;border-radius:10px;max-width:50%;text-align: center;' required></td>
+              </tr>
+              <br>
+              <tr>
+              <td><label for='amnt'>Paid($) :</label></td>
+              <td><input type='number' id='amnt' name='amnt' min='0' max='255' step='1' value='0'
+              style='font-size:100%;border-radius:10px;max-width:50%;text-align: center;' required></td>
+              </tr>
+            </table>
+            </center>
           </div>
 
           <ul>
@@ -425,7 +438,7 @@
           WS_get_data();
           WS_get_data();
           WS_get_curr_time();
-          setInterval(WS_get_data, 1000);
+          setInterval(WS_get_data, 5000);
           setInterval(WS_get_curr_time, 30000);
         }
         WSocket.onmessage = function (event) {
@@ -523,12 +536,19 @@
         }
 
         var p_time = document.getElementById("time").value;
-        let buff = new ArrayBuffer(4);
+        var amnt = document.getElementById("amnt").value;
+        if(amnt <= 0 ){
+          if(!confirm('Amount paid is $0? \nBhoe here?')){
+              return;
+          }
+        }
+        let buff = new ArrayBuffer(5);
         let data = new Int8Array(buff);
         data[0]=ServCMD.SET_DATA;
         data[1]=chkdStation;
         data[2]=checkdGame;
         data[3]= p_time/2;
+        data[4]= amnt;
         WSocket.send(buff);
         return false;
       }
